@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EcoTrack - Personal Carbon AI Footprint Tracker</title>
+  
+  <!-- Tailwind CSS & Custom Fonts -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- React 18 & ReactDOM -->
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  
+  <!-- Chart.js & Canvas Confetti -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+
+  <style>
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background: radial-gradient(circle at 50% 0%, #064e3b 0%, #022c22 35%, #020617 80%);
+      background-attachment: fixed;
+      color: #f8fafc;
+      min-height: 100vh;
+    }
+    h1, h2, h3, h4, h5, h6 { font-family: 'Outfit', sans-serif; }
+
+    .glass-card {
+      background: rgba(15, 23, 42, 0.7);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+    }
+    .glass-card-hover:hover {
+      transform: translateY(-3px);
+      border-color: rgba(16, 185, 129, 0.3);
+      box-shadow: 0 25px 60px rgba(16, 185, 129, 0.15);
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 antialiased">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    // --- COEFF CONSTANTS ---
+    const TRAVEL_COEFS = {
+      'Car Petrol': 0.192,
+      'Car Diesel': 0.171,
+      'EV Car': 0.053,
+      'Bus': 0.089,
+      'Train/Metro': 0.035,
+      'Bicycle': 0.0
+    };
+
+    const FOOD_DIETS = {
+      'Meat-heavy': 7.20,
+      'Omnivore': 5.40,
+      'Vegetarian': 3.80,
+      'Vegan': 2.90
+    };
+
+    // --- APP COMPONENT ---
+    function EcoTrackApp() {
+      const [activeTab, setActiveTab] = useState('dashboard');
+      const [budgetKg, setBudgetKg] = useState(10.0);
+      const [streakDays, setStreakDays] = useState(5);
+
+      // Current Log State
+      const [travelMode, setTravelMode] = useState('Car Petrol');
+      const [distanceKm, setDistanceKm] = useState(25);
+      const [passengers, setPassengers] = useState(2);
+      
+      const [dietType, setDietType] = useState('Omnivore');
+      const [foodWasted, setFoodWasted] = useState(false);
+
+      const [elecKwh, setElecKwh] = useState(4.0);
+      const [solarKwh, setSolarKwh] = useState(1.5);
+
+      const [reportOpen, setReportOpen] = useState(false);
+      const [adoptedCount, setAdoptedCount] = useState(0);
+
+      // Calculations
+      const travelKg = parseFloat(((distanceKm * (TRAVEL_COEFS[travelMode] || 0.15)) / Math.max(1, passengers)).toFixed(2));
+      const foodPenalty = foodWasted ? parseFloat(((FOOD_DIETS[dietType] || 5.4) * 0.10).toFixed(2)) : 0;
+      const foodKg = parseFloat(((FOOD_DIETS[dietType] || 5.4) + foodPenalty).toFixed(2));
+      const energyKg = parseFloat((Math.max(0, (elecKwh * 0.475) - (solarKwh * 0.450))).toFixed(2));
+      const totalKg = parseFloat((travelKg + foodKg + energyKg).toFixed(2));
+
+      const percentage = Math.min(100, Math.max(0, (totalKg / budgetKg) * 100));
+
+      const triggerConfetti = () => {
+        confetti({ particleCount: 70, spread: 60, origin: { y: 0.7 } });
+      };
+
+      return (
+        <div className="min-h-screen flex flex-col justify-between p-4 lg:p-8">
+          <div>
+            {/* NAVBAR */}
+            <header className="glass-card rounded-2xl p-4 mb-8 flex flex-col md:flex-row items-center justify-between gap-4 border-emerald-500/20">
+              <div className="flex items-center gap-3 cursor-pointer" onClick={() => setActiveTab('dashboard')}>
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 via-teal-500 to-cyan-400 flex items-center justify-center text-xl shadow-lg">
+                  🌱
+                </div>
+                <div>
+                  <h1 className="text-xl font-extrabold text-white">Eco<span className="text-emerald-400">Track</span></h1>
+                  <p className="text-xs text-slate-400">Personal Carbon AI Footprint Tracker</p>
+                </div>
+              </div>
+
+              <nav className="flex items-center gap-2 overflow-x-auto max-w-full">
+                {[
+                  { id: 'dashboard', label: 'Dashboard' },
+                  { id: 'logger', label: 'Log Activity' },
+                  { id: 'suggestions', label: 'AI Eco Swaps' },
+                  { id: 'history', label: 'History & Analytics' },
+                  { id: 'badges', label: 'Badges' }
+                ].map(t => (
+                  <button
+                    key={t.id}
+                    onClick={() => setActiveTab(t.id)}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+                      activeTab === t.id
+                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-sm'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </nav>
+
+              <div className="flex items-center gap-3 text-xs">
+                <div className="px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 font-bold">
+                  🔥 {streakDays} Day Streak
+                </div>
+                <div className="text-slate-300 font-medium hidden sm:block">
+                  Target: <span className="text-emerald-400 font-bold">{budgetKg} kg CO₂e</span>
+                </div>
+              </div>
+            </header>
+
+            {/* DASHBOARD TAB */}
+            {activeTab === 'dashboard' && (
+              <div className="space-y-8">
+                {/* Welcome */}
+                <div className="glass-card rounded-3xl p-8 border-emerald-500/20 bg-gradient-to-r from-emerald-950/40 via-slate-900 to-cyan-950/40 flex flex-col md:flex-row items-center justify-between gap-6">
+                  <div>
+                    <span className="px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold">
+                      ✨ College Project Demo
+                    </span>
+                    <h2 className="text-3xl font-extrabold text-white mt-2">Personal Carbon Management Dashboard</h2>
+                    <p className="text-sm text-slate-300 mt-1 max-w-xl">
+                      Monitor daily travel, food, and energy emissions against your 10 kg CO₂e target.
+                    </p>
+                  </div>
+                  <div className="flex gap-3">
+                    <button onClick={() => setActiveTab('logger')} className="px-5 py-3 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-sm shadow-lg">
+                      Log Habit Now
+                    </button>
+                    <button onClick={() => setReportOpen(true)} className="px-4 py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-sm border border-slate-700">
+                      📄 Export Report
+                    </button>
+                  </div>
+                </div>
+
+                {/* Gauge & Breakdown */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  {/* Radial Gauge Card */}
+                  <div className="glass-card rounded-3xl p-6 flex flex-col items-center justify-center text-center">
+                    <h3 className="text-lg font-bold text-white mb-2">Daily Carbon Gauge</h3>
+                    <div className="relative w-56 h-56 flex items-center justify-center">
+                      <svg className="w-full h-full transform -rotate-90" viewBox="0 0 200 200">
+                        <circle cx="100" cy="100" r="75" stroke="#1e293b" strokeWidth="16" fill="transparent" />
+                        <circle
+                          cx="100" cy="100" r="75"
+                          stroke={totalKg > budgetKg ? '#f43f5e' : (totalKg > 8 ? '#f59e0b' : '#10b981')}
+                          strokeWidth="16" fill="transparent"
+                          strokeDasharray={2 * Math.PI * 75}
+                          strokeDashoffset={2 * Math.PI * 75 * (1 - percentage / 100)}
+                          strokeLinecap="round" className="transition-all duration-700"
+                        />
+                      </svg>
+                      <div className="absolute inset-0 flex flex-col items-center justify-center">
+                        <span className="text-4xl font-extrabold text-white">{totalKg} <span className="text-sm font-normal text-slate-400">kg</span></span>
+                        <span className="text-xs text-slate-400 mt-1">Target: {budgetKg} kg</span>
+                      </div>
+                    </div>
+                    <div className="mt-4 text-xs font-semibold px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
+                      {totalKg <= budgetKg ? '✅ Under Carbon Budget' : '⚠️ Exceeded Daily Limit'}
+                    </div>
+                  </div>
+
+                  {/* Scenarios 1 & 2 Cards */}
+                  <div className="lg:col-span-2 space-y-6">
+                    <div className="glass-card rounded-3xl p-6">
+                      <h3 className="text-lg font-bold text-white mb-4">Today's Category Breakdown</h3>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800">
+                          <div className="text-xs text-slate-400 font-medium mb-1">Scenario 1: Travel ({travelMode})</div>
+                          <div className="text-2xl font-extrabold text-white">{travelKg} <span className="text-xs font-normal text-emerald-400">kg CO₂e</span></div>
+                          <div className="text-[10px] text-slate-400 mt-2">Carpooling: {passengers} Passengers</div>
+                        </div>
+
+                        <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800">
+                          <div className="text-xs text-slate-400 font-medium mb-1">Scenario 2: Food ({dietType})</div>
+                          <div className="text-2xl font-extrabold text-white">{foodKg} <span className="text-xs font-normal text-amber-400">kg CO₂e</span></div>
+                          <div className="text-[10px] text-slate-400 mt-2">{foodWasted ? '⚠️ +10% Waste Penalty' : '✅ Zero Food Waste'}</div>
+                        </div>
+
+                        <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800">
+                          <div className="text-xs text-slate-400 font-medium mb-1">Energy & Solar</div>
+                          <div className="text-2xl font-extrabold text-white">{energyKg} <span className="text-xs font-normal text-cyan-400">kg CO₂e</span></div>
+                          <div className="text-[10px] text-slate-400 mt-2">Solar Offset: -{(solarKwh * 0.45).toFixed(2)} kg</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* AI Groq Banner */}
+                    <div className="glass-card rounded-3xl p-6 border-purple-500/30 bg-gradient-to-r from-purple-950/50 to-indigo-950/50 flex items-center justify-between">
+                      <div>
+                        <span className="text-xs font-bold text-purple-300 uppercase tracking-wider">Groq API AI Engine</span>
+                        <h4 className="text-lg font-bold text-white mt-1">3 Personal Eco Lifestyle Swaps Ready</h4>
+                        <p className="text-xs text-slate-300">Powered by llama-3.3-70b-versatile</p>
+                      </div>
+                      <button onClick={() => setActiveTab('suggestions')} className="px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs shadow-lg">
+                        View AI Swaps →
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* LOGGER TAB */}
+            {activeTab === 'logger' && (
+              <div className="space-y-8 max-w-4xl mx-auto">
+                <h2 className="text-3xl font-extrabold text-white">Daily Habit Logger</h2>
+                
+                {/* Scenario 1 Travel Logger */}
+                <div className="glass-card rounded-3xl p-6 border-emerald-500/30">
+                  <h3 className="text-xl font-bold text-white mb-4">🚗 Scenario 1: Travel Activity & Carpooling</h3>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
+                    {Object.keys(TRAVEL_COEFS).map(m => (
+                      <button key={m} onClick={() => setTravelMode(m)} className={`p-3 rounded-xl text-xs font-bold border transition-all ${travelMode === m ? 'bg-emerald-500/20 border-emerald-400 text-white' : 'bg-slate-900 border-slate-800 text-slate-400'}`}>
+                        {m}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-xs font-semibold text-slate-300">Distance Travelled: {distanceKm} km</label>
+                      <input type="range" min="1" max="200" value={distanceKm} onChange={e => setDistanceKm(Number(e.target.value))} className="w-full accent-emerald-500 mt-2" />
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-slate-300">Passengers (Carpool Split): {passengers}</label>
+                      <div className="flex gap-2 mt-2">
+                        {[1, 2, 3, 4].map(n => (
+                          <button key={n} onClick={() => setPassengers(n)} className={`flex-1 py-1.5 rounded-lg text-xs font-bold border ${passengers === n ? 'bg-cyan-500/20 border-cyan-400 text-cyan-300' : 'bg-slate-900 border-slate-800 text-slate-400'}`}>
+                            {n} {n===1?'Solo':`${n}x`}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 p-3 rounded-xl bg-slate-900 font-bold text-xs text-emerald-400">
+                    Calculated Travel Emission: {travelKg} kg CO₂e
+                  </div>
+                </div>
+
+                {/* Scenario 2 Food Logger */}
+                <div className="glass-card rounded-3xl p-6 border-amber-500/30">
+                  <h3 className="text-xl font-bold text-white mb-4">🥗 Scenario 2: Food Diet & Waste Penalty</h3>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                    {Object.keys(FOOD_DIETS).map(d => (
+                      <button key={d} onClick={() => setDietType(d)} className={`p-3 rounded-xl text-xs font-bold border transition-all ${dietType === d ? 'bg-amber-500/20 border-amber-400 text-white' : 'bg-slate-900 border-slate-800 text-slate-400'}`}>
+                        {d}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="flex items-center justify-between p-4 rounded-xl bg-slate-900 border border-slate-800">
+                    <div>
+                      <span className="text-xs font-bold text-white">Food Waste Penalty (+10%)</span>
+                      <p className="text-[11px] text-slate-400">Check if any food was wasted today</p>
+                    </div>
+                    <button onClick={() => setFoodWasted(!foodWasted)} className={`px-4 py-2 rounded-xl text-xs font-bold border ${foodWasted ? 'bg-rose-500/20 border-rose-400 text-rose-300' : 'bg-slate-800 border-slate-700 text-slate-400'}`}>
+                      {foodWasted ? '⚠️ Food Wasted (+10%)' : '✅ Zero Food Waste'}
+                    </button>
+                  </div>
+
+                  <div className="mt-4 p-3 rounded-xl bg-slate-900 font-bold text-xs text-amber-400">
+                    Calculated Food Emission: {foodKg} kg CO₂e
+                  </div>
+                </div>
+
+                <button onClick={() => { triggerConfetti(); setActiveTab('dashboard'); }} className="w-full py-4 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white font-extrabold text-sm shadow-xl">
+                  Save All Records & Update Gauge
+                </button>
+              </div>
+            )}
+
+            {/* AI SUGGESTIONS TAB */}
+            {activeTab === 'suggestions' && (
+              <div className="space-y-8">
+                <div className="glass-card rounded-3xl p-8 border-purple-500/30 bg-gradient-to-r from-purple-950/40 to-indigo-950/40">
+                  <span className="text-xs font-bold text-purple-300 uppercase">Scenario 3: Groq LLM API</span>
+                  <h2 className="text-3xl font-extrabold text-white mt-1">3 Personalized AI Eco Lifestyle Swaps</h2>
+                  <p className="text-xs text-slate-300 mt-1">Generated by Groq llama-3.3-70b-versatile based on your daily footprint</p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {[
+                    {
+                      cat: 'Travel Swap',
+                      title: 'Switch 2 Car Commutes to Metro / Carpooling',
+                      impact: 'High Impact',
+                      savings: '2.4 kg CO₂',
+                      desc: 'Carpooling with colleagues or using public transit cuts personal travel emissions by 50%.',
+                      steps: ['Form carpool group with classmates', 'Use metro on Tuesdays & Thursdays']
+                    },
+                    {
+                      cat: 'Food Swap',
+                      title: 'Adopt Meatless Mondays Plant-Based Swap',
+                      impact: 'High Impact',
+                      savings: '1.8 kg CO₂',
+                      desc: 'Replacing high-impact meat meals with legumes or tofu 2 days a week cuts food score significantly.',
+                      steps: ['Replace beef with lentil curries', 'Compost organic scraps']
+                    },
+                    {
+                      cat: 'Energy Swap',
+                      title: 'Optimize Thermostat & Smart Plugs',
+                      impact: 'Medium Impact',
+                      savings: '1.4 kg CO₂',
+                      desc: 'Adjusting AC thermostat by +2°C eliminates phantom vampire power draw.',
+                      steps: ['Set thermostat to 24°C', 'Turn off standby power strips']
+                    }
+                  ].map((card, i) => (
+                    <div key={i} className="glass-card rounded-3xl p-6 flex flex-col justify-between border-slate-800">
+                      <div>
+                        <div className="flex justify-between items-center mb-3">
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-800 text-slate-300">{card.cat}</span>
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300">⚡ Save {card.savings}</span>
+                        </div>
+                        <h4 className="text-base font-bold text-white mb-2">{card.title}</h4>
+                        <p className="text-xs text-slate-300 mb-4">{card.desc}</p>
+                        <div className="space-y-1 bg-slate-900/60 p-3 rounded-xl text-[11px] text-slate-400 mb-4">
+                          {card.steps.map((s, idx) => <div key={idx}>• {s}</div>)}
+                        </div>
+                      </div>
+                      <button onClick={() => { triggerConfetti(); setAdoptedCount(prev => prev + 1); }} className="w-full py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs shadow-md">
+                        Adopt Swap
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* HISTORY TAB */}
+            {activeTab === 'history' && (
+              <div className="space-y-8">
+                <h2 className="text-3xl font-extrabold text-white">Scenario 4: History & Analytics</h2>
+                
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="glass-card p-4 rounded-2xl"><span className="text-xs text-slate-400">7-Day Avg</span><div className="text-xl font-bold text-emerald-400">7.9 kg</div></div>
+                  <div className="glass-card p-4 rounded-2xl"><span className="text-xs text-slate-400">Best Day</span><div className="text-xl font-bold text-cyan-400">5.2 kg</div></div>
+                  <div className="glass-card p-4 rounded-2xl"><span className="text-xs text-slate-400">Worst Day</span><div className="text-xl font-bold text-amber-400">11.4 kg</div></div>
+                  <div className="glass-card p-4 rounded-2xl"><span className="text-xs text-slate-400">Monthly Total</span><div className="text-xl font-bold text-purple-400">245.8 kg</div></div>
+                </div>
+
+                {/* 30-Day Heatmap Calendar */}
+                <div className="glass-card rounded-3xl p-6">
+                  <h3 className="text-lg font-bold text-white mb-4">30-Day Activity Heatmap Calendar</h3>
+                  <div className="grid grid-cols-6 sm:grid-cols-10 gap-2">
+                    {Array.from({ length: 30 }).map((_, i) => {
+                      const val = (5.0 + ((i * 7) % 6)).toFixed(1);
+                      const isOver = val > 10;
+                      return (
+                        <div key={i} className={`p-2 rounded-xl text-center border text-[11px] font-bold ${isOver ? 'bg-rose-500/20 border-rose-500/40 text-rose-300' : (val > 8 ? 'bg-amber-500/20 border-amber-500/40 text-amber-300' : 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300')}`}>
+                          <div className="text-[9px] text-slate-500 font-mono">Day {i+1}</div>
+                          <div>{val}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* BADGES TAB */}
+            {activeTab === 'badges' && (
+              <div className="space-y-8">
+                <h2 className="text-3xl font-extrabold text-white">Streaks & Badges</h2>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {[
+                    { title: 'Eco Starter', desc: 'Logged first daily activity', icon: '🌱', date: 'Jul 12' },
+                    { title: 'Zero Waste Hero', desc: '3 zero food waste days', icon: '♻️', date: 'Jul 20' },
+                    { title: 'Carpool Champion', desc: '2+ passengers carpooling', icon: '🚘', date: 'Jul 25' },
+                    { title: 'Vegetarian Vanguard', desc: 'Plant-based log < 4kg', icon: '🥗', date: 'Aug 02' },
+                    { title: '7-Day Budget Master', desc: '7 straight days under target', icon: '⚡', date: 'Aug 08' },
+                    { title: 'Carbon Titan', desc: 'Net log < 5kg solar credit', icon: '🏆', date: 'Locked' }
+                  ].map((b, i) => (
+                    <div key={i} className="glass-card p-5 rounded-2xl flex items-center gap-4 border-slate-800">
+                      <div className="text-3xl p-3 bg-slate-900 rounded-2xl border border-slate-800">{b.icon}</div>
+                      <div>
+                        <h4 className="text-sm font-bold text-white">{b.title}</h4>
+                        <p className="text-xs text-slate-400">{b.desc}</p>
+                        <span className="text-[10px] text-emerald-400 font-bold mt-1 inline-block">{b.date}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* REPORT MODAL */}
+            {reportOpen && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
+                <div className="glass-card w-full max-w-xl rounded-3xl p-6 border-emerald-500/30 space-y-6">
+                  <div className="flex justify-between items-center">
+                    <h3 className="text-xl font-bold text-white">EcoTrack Sustainability Certificate</h3>
+                    <button onClick={() => setReportOpen(false)} className="text-slate-400 hover:text-white">✕</button>
+                  </div>
+                  <div className="grid grid-cols-3 gap-3 text-center">
+                    <div className="p-3 bg-slate-900 rounded-xl"><span className="text-[10px] text-slate-400">Daily Absorbs</span><div className="text-lg font-bold text-emerald-400">126 Trees</div></div>
+                    <div className="p-3 bg-slate-900 rounded-xl"><span className="text-[10px] text-slate-400">Miles Equiv</span><div className="text-lg font-bold text-cyan-400">38 Miles</div></div>
+                    <div className="p-3 bg-slate-900 rounded-xl"><span className="text-[10px] text-slate-400">Bottles Saved</span><div className="text-lg font-bold text-purple-400">92 Bottles</div></div>
+                  </div>
+                  <button onClick={() => window.print()} className="w-full py-3 rounded-xl bg-emerald-500 text-white font-bold text-xs">Print Official Report</button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* FOOTER */}
+          <footer className="glass-card rounded-2xl p-4 mt-12 text-center text-xs text-slate-400 border-slate-800">
+            EcoTrack AI Dashboard © 2026 | Team Lead: <strong className="text-emerald-400">Bhagya Marisetti</strong> | Members: Gunuru Devi Chandu, Satya Veera Hari Bhargav Ganta, Sri Sai Deepthy Govvala, Linga Reddy Sivani
+          </footer>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<EcoTrackApp />);
+  </script>
+</body>
+</html>
