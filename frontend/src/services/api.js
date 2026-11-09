@@ -3,7 +3,7 @@
  * Handles emissions calculations, AI recommendations, analytics data, and persistence.
  */
 
-const BASE_URL = '/api';
+const BASE_URL = 'https://eco-track-9sdw.onrender.com/api';
 
 export async function fetchHealth() {
   try {
