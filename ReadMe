@@ -1,0 +1,82 @@
+# 🌱 EcoTrack - Personal Carbon Footprint Tracker
+
+EcoTrack is a full-stack web application designed to monitor, calculate, and manage personal carbon emissions across daily activities such as travel, food consumption, and energy use. It features AI-powered lifestyle suggestions and comprehensive carbon analytics to promote sustainable living.
+
+---
+
+## 🚀 Live Demo & Deployment
+* **Frontend (Netlify):** [View Live App] https://gleaming-profiterole-f84f33.netlify.app/
+* **Backend API (Render):** [API Endpoint]https://eco-track-9sdw.onrender.com
+
+---
+
+## 🛠️ Tech Stack
+
+### **Frontend**
+* **React.js** (Vite)
+* **Tailwind CSS** (for styling & responsive UI)
+* **Lucide React** (Icons)
+
+### **Backend & APIs**
+* **Python & Flask** (RESTful API architecture)
+* **Gunicorn** (WSGI HTTP Server for production)
+* **Groq API** (Llama-3.3-70b-versatile for AI-powered eco-recommendations)
+* **Carbon Interface API** (Real-world emission factor calculations)
+
+### **Database & Authentication**
+* **Firebase Firestore** (Cloud NoSQL Database for user data, habits, and logs)
+* **Firebase Authentication** (User management, secure login/signup)
+
+---
+
+## 📊 Key Features
+* **Personal Carbon Management Dashboard:** Real-time carbon gauge tracking daily emissions against targeted goals.
+* **Category Breakdown:** Detailed tracking of emissions split across Travel, Food (Omnivore/Vegetarian scenarios), and Energy/Solar usage.
+* **Daily Habit Logger:** Interactive logging system for user activities and lifestyle tracking.
+* **AI Eco Swaps:** Intelligent, AI-generated personalized recommendations powered by the Groq Llama model to reduce carbon impact.
+* **History & Analytics:** Visual charts and heatmaps to monitor long-term emission trends.
+
+---
+
+## 📐 Technical Architecture
+```text
+[ User (Web/Mobile) ]
+│
+▼ (HTTPS / JSON)
+[ Frontend (React + Tailwind CSS) ]
+│
+▼ (API Requests)
+[ Backend (Flask - Python) ] ──► [ Groq API / Carbon Interface / Firebase Auth ]
+│
+▼ (Read / Write Data)
+[ Firebase Firestore Database ]
+### 📷 Screenshots
+
+### **Dashboard Overview**
+<img width="1942" height="863" alt="image" src="https://github.com/user-attachments/assets/b8c0b036-6e65-49bf-bc00-44ff7fbd038b" />
+
+
+---
+
+## ⚙️ Local Installation & Setup
+
+If you want to run this project locally, follow these steps:
+
+### 1. Clone the Repository
+    bash
+    git clone https://github.com/kiran-gunuru/eco-track.git
+    cd eco-track
+### 2. Run Backend
+    Bash
+    cd backend
+    pip install -r requirements.txt
+python app.py
+    ### 3. Run Frontend
+    Bash
+    cd ../frontend
+    npm install
+    npm run dev
+👨‍💻 Author
+   Gunuru Devi Chandu (Roll No: 23P31A0420)
+
+   Institution: Aditya College of Engineering & Technology (Aditya University), Surampalem.
